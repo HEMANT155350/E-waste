@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoWaste - E-Waste Recycling Portal</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header>
+    <h1>🌱 EcoWaste Portal</h1>
+    <nav>
+      <a href="#pickup">Request Pickup</a>
+      <a href="recycler.html" class="btn-nav">Recycler Dashboard</a>
+    </nav>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <h2>Don't Trash It, Recycle It!</h2>
+    <p>Apne purane electronics safely dispose karein aur environment ko toxic e-waste se bachayein.</p>
+    
+    <div class="stats-container">
+      <div class="stat-box">
+        <div class="stat-number" id="recycledCount">128 kg</div>
+        <div>Total E-Waste Recycled</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number" id="requestCount">45</div>
+        <div>Pickups Completed</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Request Pickup Form Section -->
+  <section id="pickup" class="form-section">
+    <h3>Schedule E-Waste Pickup</h3>
+    <form id="eWasteForm">
+      <div class="form-group">
+        <label for="userName">Full Name</label>
+        <input type="text" id="userName" placeholder="Apna naam likhein" required>
+      </div>
+
+      <div class="form-group">
+        <label for="userPhone">Phone Number</label>
+        <input type="tel" id="userPhone" placeholder="Mobile number" required>
+      </div>
+
+      <div class="form-group">
+        <label for="address">Pickup Address</label>
+        <textarea id="address" rows="2" placeholder="Ghar ka poora pata" required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="itemCategory">E-Waste Category</label>
+        <select id="itemCategory">
+          <option value="Mobiles/Laptops">Mobiles / Laptops</option>
+          <option value="Batteries/Chargers">Batteries / Chargers</option>
+          <option value="Appliances">Home Appliances (TV, Fridge, etc.)</option>
+          <option value="Wires/Cables">Wires & Cables</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="quantity">Quantity / Weight</label>
+        <input type="text" id="quantity" placeholder="e.g., 2 Mobile, 1 Laptop" required>
+      </div>
+
+      <button type="submit" class="btn-submit">Submit Pickup Request</button>
+    </form>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>&copy; 2026 EcoWaste Portal | School Science Project</p>
+  </footer>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <!-- JavaScript Code -->
+  <script>
+    document.getElementById('eWasteForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const form = this;
+      const submitButton = form.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+
+      try {
+        const request = await window.EcoWasteStore.createRequest({
+          name: document.getElementById('userName').value.trim(),
+          phone: document.getElementById('userPhone').value.trim(),
+          address: document.getElementById('address').value.trim(),
+          category: document.getElementById('itemCategory').value,
+          quantity: document.getElementById('quantity').value.trim()
+        });
+        alert(`Dhanyawad ${request.name}! Request ${request.id} submit ho gaya hai.\nRecycler dashboard par aapki request dikh rahi hai.`);
+        form.reset();
+        renderLatestStatus([request]);
+      } catch (error) {
+        console.error('Pickup request could not be saved.', error);
+        alert('Request save nahi ho paya. Please dobara try karein.');
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    function renderLatestStatus(requests) {
+      const latestId = window.EcoWasteStore.getLastRequestId();
+      const latest = requests.find(function (request) { return request.id === latestId; });
+      let status = document.getElementById('pickupStatus');
+      if (!status) {
+        status = document.createElement('p');
+        status.id = 'pickupStatus';
+        status.setAttribute('role', 'status');
+        status.style.marginTop = '1rem';
+        status.style.fontWeight = '600';
+        document.getElementById('eWasteForm').after(status);
+      }
+      if (!latest) {
+        status.textContent = '';
+        return;
+      }
+      const labels = { pending: 'Pending confirmation', confirmed: 'Pickup confirmed', 'in-progress': 'Pickup in progress', completed: 'Pickup completed' };
+      status.textContent = `Request ${latest.id}: ${labels[latest.status] || latest.status}`;
+      status.style.color = latest.status === 'pending' ? '#b45309' : '#047857';
+    }
+
+    window.EcoWasteStore.subscribe(renderLatestStatus);
+  </script>
+
+</body>
+</html>

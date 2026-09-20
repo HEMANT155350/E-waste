@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recycler Dashboard - EcoWaste</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <link rel="stylesheet" href="recycler.css">
+
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <nav class="navbar">
+    <div class="logo">🌱 EcoWaste Recycler</div>
+    <div class="nav-links">
+      <a href="index.html#pickup">Request Pickup</a>
+      <a href="#">Recycler Dashboard</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h2 class="page-title">Recycler Operations Dashboard</h2>
+
+    <!-- Metrics Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <p>Pending Requests</p>
+        <h3 id="pendingCount">0</h3>
+      </div>
+      <div class="stat-card">
+        <p>Pickups In Progress</p>
+        <h3 id="progressCount">0</h3>
+      </div>
+      <div class="stat-card">
+        <p>Total Completed</p>
+        <h3 id="completedCount">0</h3>
+      </div>
+      <div class="stat-card">
+        <p>Total E-Waste Handled</p>
+        <h3 id="handledCount">0</h3>
+      </div>
+    </div>
+
+    <!-- Main Content Panel -->
+    <div class="dashboard-card">
+      <div class="filter-tabs">
+        <button class="tab-btn active" data-filter="all">All Requests</button>
+        <button class="tab-btn" data-filter="pending">Pending</button>
+        <button class="tab-btn" data-filter="confirmed">Confirmed</button>
+        <button class="tab-btn" data-filter="completed">Completed</button>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Customer Name</th>
+              <th>Phone</th>
+              <th>Category</th>
+              <th>Quantity / Weight</th>
+              <th>Address</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="requestsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const filters = { current: 'all' };
+    let allRequests = [];
+
+    function statusLabel(status) {
+      return { pending: 'Pending', confirmed: 'Confirmed', 'in-progress': 'In Progress', completed: 'Completed' }[status] || status;
+    }
+
+    function statusClass(status) {
+      return status === 'completed' ? 'badge-completed' : status === 'pending' ? 'badge-pending' : 'badge-progress';
+    }
+
+    function nextAction(request) {
+      if (request.status === 'pending') return { label: 'Confirm pickup', status: 'confirmed', className: 'btn-primary' };
+      if (request.status === 'confirmed') return { label: 'Start pickup', status: 'in-progress', className: 'btn-outline' };
+      if (request.status === 'in-progress') return { label: 'Complete', status: 'completed', className: 'btn-outline' };
+      return null;
+    }
+
+    function renderDashboard(requests) {
+      allRequests = requests.sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
+      document.getElementById('pendingCount').textContent = requests.filter(function (r) { return r.status === 'pending'; }).length;
+      document.getElementById('progressCount').textContent = requests.filter(function (r) { return r.status === 'confirmed' || r.status === 'in-progress'; }).length;
+      document.getElementById('completedCount').textContent = requests.filter(function (r) { return r.status === 'completed'; }).length;
+      document.getElementById('handledCount').textContent = requests.filter(function (r) { return r.status === 'completed'; }).reduce(function (total, r) {
+        const weight = parseFloat(r.quantity) || 0;
+        return total + weight;
+      }, 0) + ' kg';
+
+      const visible = filters.current === 'all' ? allRequests : allRequests.filter(function (r) {
+        return filters.current === 'confirmed'
+          ? r.status === 'confirmed' || r.status === 'in-progress'
+          : r.status === filters.current;
+      });
+      const body = document.getElementById('requestsBody');
+      body.innerHTML = visible.length ? visible.map(function (request) {
+        const action = nextAction(request);
+        return `<tr>
+          <td>#${request.id}</td>
+          <td>${escapeHtml(request.name)}</td>
+          <td>${escapeHtml(request.phone)}</td>
+          <td>${escapeHtml(request.category)}</td>
+          <td>${escapeHtml(request.quantity)}</td>
+          <td>${escapeHtml(request.address)}</td>
+          <td><span class="badge ${statusClass(request.status)}">${statusLabel(request.status)}</span></td>
+          <td>${action ? `<button class="btn ${action.className}" data-id="${request.id}" data-status="${action.status}">${action.label}</button>` : '<button class="btn btn-outline" disabled style="opacity: 0.5;">Done</button>'}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="8" style="text-align:center;">No pickup requests yet.</td></tr>';
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, function (character) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character];
+      });
+    }
+
+    document.querySelector('.dashboard-card').addEventListener('click', function (event) {
+      const button = event.target.closest('button[data-id]');
+      if (!button) return;
+      button.disabled = true;
+      window.EcoWasteStore.updateStatus(button.dataset.id, button.dataset.status).catch(function (error) {
+        console.error('Pickup status could not be updated.', error);
+        button.disabled = false;
+        alert('Status update nahi ho paya. Please dobara try karein.');
+      });
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(function (button) {
+      button.addEventListener('click', function () {
+        document.querySelectorAll('.tab-btn').forEach(function (tab) { tab.classList.remove('active'); });
+        button.classList.add('active');
+        filters.current = button.dataset.filter;
+        renderDashboard(allRequests);
+      });
+    });
+
+    window.EcoWasteStore.subscribe(renderDashboard);
+  </script>
+</body>
+</html>
