@@ -1,4 +1,4 @@
-# E-waste# EcoWaste - E-Waste Recycling Portal
+# EcoWaste - E-Waste Recycling Portal
 
 A simple web-based portal for collecting e-waste pickup requests from users and managing those requests from a recycler dashboard.
 
